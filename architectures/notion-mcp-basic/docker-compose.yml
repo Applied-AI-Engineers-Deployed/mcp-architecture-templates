@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+  mcp-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${MCP_GATEWAY_PORT:-8080}:8080"
+    environment:
+      - NOTION_API_TOKEN=${NOTION_API_TOKEN}
+      - ALLOWED_PAGE_IDS=${ALLOWED_PAGE_IDS:-}
+      - ALLOWED_OPERATIONS=${ALLOWED_OPERATIONS:-read,search}
+      - RATE_LIMIT_PER_MINUTE=${RATE_LIMIT_PER_MINUTE:-30}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - audit-logs:/var/log/mcp-gateway
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    networks:
+      - mcp-internal
+
+  # Optional: log shipper for audit logs
+  # Uncomment and configure for your logging stack
+  #
+  # log-shipper:
+  #   image: fluent/fluent-bit:latest
+  #   volumes:
+  #     - audit-logs:/var/log/mcp-gateway:ro
+  #     - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+  #   depends_on:
+  #     - mcp-gateway
+  #   networks:
+  #     - mcp-internal
+
+volumes:
+  audit-logs:
+    driver: local
+
+networks:
+  mcp-internal:
+    driver: bridge
